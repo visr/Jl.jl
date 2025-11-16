@@ -1,0 +1,9 @@
+[deps]
+Aqua = "4c88cf16-eb10-579e-8560-4a9242c79595"
+IOCapture = "b5f81e59-6552-4d32-b1f0-c071b021bf89"
+Jl = "d94132cf-1b75-44f1-93bc-b683902657ec"
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
+[compat]
+Aqua = "0.8"
+Test = "1"

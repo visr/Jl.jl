@@ -3,7 +3,7 @@ module Jl
 using Pkg: Pkg, REPLMode, Types
 
 function print_help()
-    println("pkg - Julia package manager command-line interface\n")
+    println("jl - Julia package manager command-line interface\n")
     println("Full documentation available at https://pkgdocs.julialang.org/\n")
 
     printstyled("OPTIONS:\n", bold=true)
@@ -13,11 +13,15 @@ function print_help()
     println("  --version         Show Pkg version\n")
 
     printstyled("SYNOPSIS:\n", bold=true)
-    println("  pkg [opts] cmd [args]\n")
+    println("  jl [opts] cmd [args]\n")
     println("Multiple commands can be given on the same line by interleaving a ; between")
     println("the commands. Some commands have an alias, indicated below.\n")
 
     printstyled("COMMANDS:\n", bold=true)
+
+    print("\n    ")
+    printstyled("run", color=:cyan)
+    println(": run a Julia script")
 
     # Group commands by category
     for (category_name, category_title) in [
@@ -52,7 +56,7 @@ function print_help()
     end
 end
 
-function (@main)(ARGS)
+function (@main)(ARGS)::Int32
     # Disable interactivity warning (pkg should be used interactively)
     if isdefined(REPLMode, :PRINTED_REPL_WARNING)
         REPLMode.PRINTED_REPL_WARNING[] = true
@@ -63,6 +67,9 @@ function (@main)(ARGS)
     # to respect the user's current directory for project resolution
     empty!(LOAD_PATH)
     append!(LOAD_PATH, Base.DEFAULT_LOAD_PATH)
+    # also in ENV for the child processes
+    sep = Sys.iswindows() ? ';' : ':'
+    ENV["JULIA_LOAD_PATH"] = join(Base.DEFAULT_LOAD_PATH, sep)
 
     # Parse options before the command
     project_path = nothing
@@ -119,8 +126,6 @@ function (@main)(ARGS)
         end
     end
 
-    pkg_command = join(remaining_args, " ")
-
     # Set project if specified, otherwise use Julia's default logic
     if project_path !== nothing
         Pkg.activate(project_path; io=devnull)
@@ -142,7 +147,7 @@ function (@main)(ARGS)
 
     # Execute the Pkg REPL command
     try
-        REPLMode.pkgstr(pkg_command)
+        run_jl(remaining_args)
         return 0
     catch e
         if e isa InterruptException
@@ -151,6 +156,21 @@ function (@main)(ARGS)
         println(stderr, "Error: ", sprint(showerror, e))
         return 1
     end
+end
+
+function run_jl(remaining_args::Vector{String})::Nothing
+    if remaining_args[1] == "run"
+        if length(remaining_args) == 1
+            error("No script specified: `jl run script.jl`.")
+        end
+        Pkg.instantiate()
+        run_args = remaining_args[2:end]
+        run(`$(Base.julia_cmd()) --project $run_args`)
+    else
+        pkg_command = join(remaining_args, " ")
+        REPLMode.pkgstr(pkg_command)
+    end
+    return nothing
 end
 
 end # module Jl
