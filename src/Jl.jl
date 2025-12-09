@@ -19,6 +19,10 @@ function print_help()
 
     printstyled("COMMANDS:\n", bold=true)
 
+    print("    ")
+    printstyled("init", color=:cyan)
+    println(": initialize an empty project (optionally at a specified path)")
+
     print("\n    ")
     printstyled("run", color=:cyan)
     println(": run a Julia script")
@@ -159,11 +163,19 @@ function (@main)(ARGS)::Int32
 end
 
 function run_jl(remaining_args::Vector{String})::Nothing
-    if remaining_args[1] == "run"
+    if remaining_args[1] == "init"
+        # TODO Copy uv: If a Project.toml is found in any of the parent directories of the target path, the project will be added as a workspace member of the parent.
+        project_path = length(remaining_args) > 1 ? remaining_args[2] : pwd()
+        Pkg.activate(project_path; io=devnull)
+        # Only writes a Project.toml the second time
+        Pkg.instantiate(; io=devnull)
+        Pkg.instantiate(; io=devnull)
+        println("Initialized empty project at $(abspath(project_path))")
+    elseif remaining_args[1] == "run"
         if length(remaining_args) == 1
             error("No script specified: `jl run script.jl`.")
         end
-        Pkg.instantiate()
+        Pkg.instantiate(; io=devnull)
         run_args = remaining_args[2:end]
         run(`$(Base.julia_cmd()) --project $run_args`)
     else

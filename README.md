@@ -2,7 +2,7 @@
 
 An early prototype for an app to run Julia scripts and manage packages.
 
-`jl` uses [Pkg.jl](https://github.com/JuliaLang/Pkg.jl) and only slightly extends the `pkg` app from https://github.com/JuliaLang/Pkg.jl/pull/4473. It adds a `run` subcommand as shown below.
+`jl` uses [Pkg.jl](https://github.com/JuliaLang/Pkg.jl) and only slightly extends the `pkg` app from https://github.com/JuliaLang/Pkg.jl/pull/4473. It adds `init` and `run` subcommands as shown below.
 
 ## Installation
 
@@ -20,7 +20,8 @@ If that is in your PATH environment variable, you can run `jl` from anywhere.
 Create a new project in the current directory and add Example.
 
 ```sh
-jl --project=. add Example
+jl init
+jl add Example
 ```
 
 Add a Julia script called `hello.jl` with these contents:
@@ -73,6 +74,7 @@ This uses the experimental [Pkg app support](https://pkgdocs.julialang.org/v1/ap
 As a regular user of [uv](https://docs.astral.sh/uv/) and [Pixi](https://pixi.sh/latest/) I like how they make it easy to not only do package management, but also facilitate running scripts, downloading dependencies as needed.
 Currently having to explain to new users about `Pkg.instantiate()` and the `--project` flag seems too complicated compared to these tools.
 People have argued about changing defaults, but usually security concerns are brought up, listing [Nefarious.jl](https://github.com/StefanKarpinski/Nefarious.jl) and https://github.com/JuliaLang/Pkg.jl/pull/2024 as examples.
+See also discussion in [Make activate instantiate by default · Issue #1415 · Pkg.jl](https://github.com/JuliaLang/Pkg.jl/issues/1415).
 So we should probably mention that `jl` should only be used if you trust the project you are in and its dependencies.
 
 I put this code out there to get early feedback.
