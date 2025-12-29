@@ -6,38 +6,38 @@ function print_help()
     println("jl - Julia package manager command-line interface\n")
     println("Full documentation available at https://pkgdocs.julialang.org/\n")
 
-    printstyled("OPTIONS:\n", bold=true)
+    printstyled("OPTIONS:\n", bold = true)
     println("  --project=PATH    Set the project environment (default: current project)")
     println("  --offline         Work in offline mode")
     println("  --help            Show this help message")
     println("  --version         Show Pkg version\n")
 
-    printstyled("SYNOPSIS:\n", bold=true)
+    printstyled("SYNOPSIS:\n", bold = true)
     println("  jl [opts] cmd [args]\n")
     println("Multiple commands can be given on the same line by interleaving a ; between")
     println("the commands. Some commands have an alias, indicated below.\n")
 
-    printstyled("COMMANDS:\n", bold=true)
+    printstyled("COMMANDS:\n", bold = true)
 
     print("    ")
-    printstyled("init", color=:cyan)
+    printstyled("init", color = :cyan)
     println(": initialize an empty project (optionally at a specified path)")
 
     print("\n    ")
-    printstyled("run", color=:cyan)
+    printstyled("run", color = :cyan)
     println(": run a Julia script")
 
     # Group commands by category
     for (category_name, category_title) in [
-        ("package", "Package management commands"),
-        ("registry", "Registry commands"),
-        ("app", "App commands")
-    ]
+            ("package", "Package management commands"),
+            ("registry", "Registry commands"),
+            ("app", "App commands"),
+        ]
         category_specs = get(REPLMode.SPECS, category_name, nothing)
         category_specs === nothing && continue
 
         println()
-        printstyled("  $category_title\n", bold=true)
+        printstyled("  $category_title\n", bold = true)
 
         # Get unique specs for this category and sort them
         specs_dict = Dict{String, Any}()
@@ -50,14 +50,15 @@ function print_help()
             # For non-package commands, prefix with category
             full_cmd = category_name == "package" ? cmd_name : "$category_name $cmd_name"
             print("    ")
-            printstyled(full_cmd, color=:cyan)
+            printstyled(full_cmd, color = :cyan)
             if spec.short_name !== nothing
                 print(", ")
-                printstyled(spec.short_name, color=:cyan)
+                printstyled(spec.short_name, color = :cyan)
             end
             println(": $(spec.description)")
         end
     end
+    return
 end
 
 function (@main)(ARGS)::Int32
@@ -84,7 +85,7 @@ function (@main)(ARGS)::Int32
         arg = ARGS[idx]
 
         if startswith(arg, "--project=")
-            project_path = arg[length("--project=")+1:end]
+            project_path = arg[(length("--project=") + 1):end]
             idx += 1
         elseif arg == "--project" && idx < length(ARGS)
             idx += 1
@@ -132,15 +133,15 @@ function (@main)(ARGS)::Int32
 
     # Set project if specified, otherwise use Julia's default logic
     if project_path !== nothing
-        Pkg.activate(project_path; io=devnull)
+        Pkg.activate(project_path; io = devnull)
     else
         # Look for Project.toml in pwd or parent directories
         current_proj = Base.current_project(pwd())
         if current_proj !== nothing
-            Pkg.activate(current_proj; io=devnull)
+            Pkg.activate(current_proj; io = devnull)
         else
             # No project found, use default environment
-            Pkg.activate(; io=devnull)
+            Pkg.activate(; io = devnull)
         end
     end
 
@@ -166,16 +167,16 @@ function run_jl(remaining_args::Vector{String})::Nothing
     if remaining_args[1] == "init"
         # TODO Copy uv: If a Project.toml is found in any of the parent directories of the target path, the project will be added as a workspace member of the parent.
         project_path = length(remaining_args) > 1 ? remaining_args[2] : pwd()
-        Pkg.activate(project_path; io=devnull)
+        Pkg.activate(project_path; io = devnull)
         # Only writes a Project.toml the second time
-        Pkg.instantiate(; io=devnull)
-        Pkg.instantiate(; io=devnull)
+        Pkg.instantiate(; io = devnull)
+        Pkg.instantiate(; io = devnull)
         println("Initialized empty project at $(abspath(project_path))")
     elseif remaining_args[1] == "run"
         if length(remaining_args) == 1
             error("No script specified: `jl run script.jl`.")
         end
-        Pkg.instantiate(; io=devnull)
+        Pkg.instantiate(; io = devnull)
         run_args = remaining_args[2:end]
         run(`$(Base.julia_cmd()) --project $run_args`)
     else
