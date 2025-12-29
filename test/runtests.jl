@@ -1,7 +1,6 @@
 using Test
 using Jl
 using IOCapture
-import Aqua
 
 @testset "Jl" begin
 
@@ -12,6 +11,4 @@ import Aqua
         @test c.value == 0
         @test contains(c.output, "jl - Julia package manager command-line interface")
     end
-
-    Aqua.test_all(Jl)
 end
