@@ -8,7 +8,7 @@ function testdir(f, dir)
     rm(dir; recursive = true, force = true)
     mkpath(dir)
     tmp = realpath(dir)
-    cd(tmp) do
+    return cd(tmp) do
         f(tmp)
     end
 end
@@ -40,11 +40,13 @@ end
 
         # Create hello.jl script
         hello_script = joinpath(tmpdir, "hello.jl")
-        write(hello_script, """
+        write(
+            hello_script, """
             using Example: hello
 
             println(hello("Julia"))
-            """)
+            """
+        )
 
         # Test: jl run hello.jl
         c = capture() do

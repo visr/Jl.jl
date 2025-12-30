@@ -2,6 +2,8 @@ module Jl
 
 using Pkg: Pkg, REPLMode, Types
 
+const JL_VERSION = pkgversion(@__MODULE__)
+
 function print_help()
     println("jl - Julia package manager command-line interface\n")
     println("Full documentation available at https://pkgdocs.julialang.org/\n")
@@ -98,7 +100,7 @@ function (@main)(ARGS)::Int32
             print_help()
             return 0
         elseif arg == "--version"
-            println("Pkg version $(Types.TOML.parsefile(joinpath(@__DIR__, "..", "Project.toml"))["version"])")
+            println("jl version $JL_VERSION, julia version $VERSION")
             return 0
         elseif startswith(arg, "--")
             println(stderr, "Error: Unknown option: $arg")
