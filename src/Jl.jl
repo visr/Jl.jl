@@ -132,19 +132,25 @@ function (@main)(args)::Int32
             remaining_args[1] = "?"
         end
     end
-
     # Set project if specified, otherwise use Julia's default logic
-    if project_path !== nothing
-        Pkg.activate(project_path; io = devnull)
-    else
-        # Look for Project.toml in pwd or parent directories
-        current_proj = Base.current_project(pwd())
-        if current_proj !== nothing
-            Pkg.activate(current_proj; io = devnull)
+    if project_path === nothing
+        # Look for project path to activate
+        # If a script is specified, use its directory as the starting point
+        script_arg = findfirst(arg -> endswith(arg, ".jl"), remaining_args)
+        base_dir = if script_arg !== nothing
+            dirname(abspath(remaining_args[script_arg]))
         else
+            pwd()
+        end
+        current_proj = Base.current_project(base_dir)
+        if current_proj === nothing
             # No project found, use default environment
             Pkg.activate(; io = devnull)
+        else
+            Pkg.activate(current_proj; io = devnull)
         end
+    else
+        Pkg.activate(project_path; io = devnull)
     end
 
     # Set offline mode if requested
@@ -193,7 +199,9 @@ function run_run(args::Vector{String})::Int32
     end
     Pkg.instantiate(; io = devnull)
     run_args = args[2:end]
-    cmd = pipeline(`$(Base.julia_cmd()) --project $run_args`; stdin, stdout, stderr)
+    # Pass the currently active project to the child Julia process
+    active_project = Base.active_project()
+    cmd = pipeline(`$(Base.julia_cmd()) --project=$active_project $run_args`; stdin, stdout, stderr)
     process = run(cmd; wait = false)
     wait(process)
     return Int32(process.exitcode)

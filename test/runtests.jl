@@ -56,11 +56,13 @@ end
             @test c.value == 0
             @test contains(c.output, "Hello, Julia")
 
-            # Test exit code propagation
+            # Test exit code propagation, from other directory
             exit_script = joinpath(tmpdir, "exit.jl")
             write(exit_script, "exit(5)")
             c = capture() do
-                Jl.main(["run", "exit.jl"])
+                cd("../..") do
+                    Jl.main(["run", "test/readme/exit.jl"])
+                end
             end
             @test c.value == 5
 
