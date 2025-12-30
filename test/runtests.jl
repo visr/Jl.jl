@@ -13,59 +13,69 @@ function testdir(f, dir)
     end
 end
 
-@testset "help" begin
-    c = capture() do
-        Jl.main(["help"])
+@testset "Jl" begin
+    @testset "help" begin
+        c = capture() do
+            Jl.main(["help"])
+        end
+        @test c.value == 0
+        @test contains(c.output, "jl - Julia package manager command-line interface")
     end
-    @test c.value == 0
-    @test contains(c.output, "jl - Julia package manager command-line interface")
-end
 
-@testset "README example workflow" begin
-    testdir("readme") do tmpdir
-        @show tmpdir
-        # Test: jl init
-        c = capture() do
-            Jl.main(["init"])
+    @testset "README example workflow" begin
+        testdir("readme") do tmpdir
+            @show tmpdir
+            # Test: jl init
+            c = capture() do
+                Jl.main(["init"])
+            end
+            @test c.value == 0
+            @test contains(c.output, "Initialized empty project")
+            @test isfile(joinpath(tmpdir, "Project.toml"))
+
+            # Test: jl add Example and Runic
+            c = capture() do
+                Jl.main(["add", "Example", "Runic"])
+            end
+            @test c.value == 0
+
+            # Create hello.jl script
+            hello_script = joinpath(tmpdir, "hello.jl")
+            write(
+                hello_script, """
+                using Example: hello
+
+                println(hello("Julia"))
+                """
+            )
+
+            # Test: jl run hello.jl
+            c = capture() do
+                Jl.main(["run", "hello.jl"])
+            end
+            @test c.value == 0
+            @test contains(c.output, "Hello, Julia")
+
+            # Test exit code propagation
+            exit_script = joinpath(tmpdir, "exit.jl")
+            write(exit_script, "exit(5)")
+            c = capture() do
+                Jl.main(["run", "exit.jl"])
+            end
+            @test c.value == 5
+
+            # Test: jl app add Runic
+            c = capture() do
+                Jl.main(["app", "add", "Runic"])
+            end
+            @test c.value == 0
+
+            # Test: jl run -m Runic --version
+            c = capture() do
+                Jl.main(["run", "-m", "Runic", "--version"])
+            end
+            @test c.value == 0
+            @test contains(c.output, "runic version")
         end
-        @test c.value == 0
-        @test contains(c.output, "Initialized empty project")
-        @test isfile(joinpath(tmpdir, "Project.toml"))
-
-        # Test: jl add Example and Runic
-        c = capture() do
-            Jl.main(["add", "Example", "Runic"])
-        end
-        @test c.value == 0
-
-        # Create hello.jl script
-        hello_script = joinpath(tmpdir, "hello.jl")
-        write(
-            hello_script, """
-            using Example: hello
-
-            println(hello("Julia"))
-            """
-        )
-
-        # Test: jl run hello.jl
-        c = capture() do
-            Jl.main(["run", "hello.jl"])
-        end
-        @test c.value == 0
-        @test contains(c.output, "Hello, Julia")
-
-        # Test: jl app add Runic
-        c = capture() do
-            Jl.main(["app", "add", "Runic"])
-        end
-        @test c.value == 0
-
-        # Test: jl run -m Runic --version
-        c = capture() do
-            Jl.main(["run", "-m", "Runic", "--version"])
-        end
-        @test c.value == 0
-        @test contains(c.output, "runic version")
     end
 end

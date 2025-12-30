@@ -12,7 +12,7 @@ function print_help()
     println("  --project=PATH    Set the project environment (default: current project)")
     println("  --offline         Work in offline mode")
     println("  --help            Show this help message")
-    println("  --version         Show Pkg version\n")
+    println("  --version         Show jl version\n")
 
     printstyled("SYNOPSIS:\n", bold = true)
     println("  jl [opts] cmd [args]\n")
@@ -63,7 +63,7 @@ function print_help()
     return
 end
 
-function (@main)(ARGS)::Int32
+function (@main)(args)::Int32
     # Disable interactivity warning (pkg should be used interactively)
     if isdefined(REPLMode, :PRINTED_REPL_WARNING)
         REPLMode.PRINTED_REPL_WARNING[] = true
@@ -83,15 +83,15 @@ function (@main)(ARGS)::Int32
     offline_mode = false
     idx = 1
 
-    while idx <= length(ARGS)
-        arg = ARGS[idx]
+    while idx <= length(args)
+        arg = args[idx]
 
         if startswith(arg, "--project=")
             project_path = arg[(length("--project=") + 1):end]
             idx += 1
-        elseif arg == "--project" && idx < length(ARGS)
+        elseif arg == "--project" && idx < length(args)
             idx += 1
-            project_path = ARGS[idx]
+            project_path = args[idx]
             idx += 1
         elseif arg == "--offline"
             offline_mode = true
@@ -113,7 +113,7 @@ function (@main)(ARGS)::Int32
     end
 
     # Get the remaining arguments (the Pkg command)
-    remaining_args = ARGS[idx:end]
+    remaining_args = args[idx:end]
 
     if isempty(remaining_args)
         print_help()
@@ -154,8 +154,7 @@ function (@main)(ARGS)::Int32
 
     # Execute the Pkg REPL command
     try
-        run_jl(remaining_args)
-        return 0
+        return run_subcommand(remaining_args)
     catch e
         if e isa InterruptException
             return 130  # Standard exit code for SIGINT
@@ -165,26 +164,45 @@ function (@main)(ARGS)::Int32
     end
 end
 
-function run_jl(remaining_args::Vector{String})::Nothing
-    if remaining_args[1] == "init"
-        # TODO Copy uv: If a Project.toml is found in any of the parent directories of the target path, the project will be added as a workspace member of the parent.
-        project_path = length(remaining_args) > 1 ? remaining_args[2] : pwd()
-        Pkg.activate(project_path; io = devnull)
-        # Only writes a Project.toml the second time
-        Pkg.instantiate(; io = devnull)
-        Pkg.instantiate(; io = devnull)
-        println("Initialized empty project at $(abspath(project_path))")
-    elseif remaining_args[1] == "run"
-        if length(remaining_args) == 1
-            error("No script specified: `jl run script.jl`.")
-        end
-        Pkg.instantiate(; io = devnull)
-        run_args = remaining_args[2:end]
-        run(`$(Base.julia_cmd()) --project $run_args`)
+function run_subcommand(args::Vector{String})::Int32
+    if args[1] == "init"
+        run_init(args)
+        return 0
+    elseif args[1] == "run"
+        return run_run(args)
     else
-        pkg_command = join(remaining_args, " ")
-        REPLMode.pkgstr(pkg_command)
+        run_pkg(args)
+        return 0
     end
+end
+
+function run_init(args::Vector{String})::Nothing
+    # TODO Copy uv: If a Project.toml is found in any of the parent directories of the target path, the project will be added as a workspace member of the parent.
+    project_path = length(args) > 1 ? args[2] : pwd()
+    Pkg.activate(project_path; io = devnull)
+    # Only writes a Project.toml the second time
+    Pkg.instantiate(; io = devnull)
+    Pkg.instantiate(; io = devnull)
+    println("Initialized empty project at $(abspath(project_path))")
+    return nothing
+end
+
+function run_run(args::Vector{String})::Int32
+    if length(args) == 1
+        error("No script specified: `jl run script.jl`.")
+    end
+    Pkg.instantiate(; io = devnull)
+    run_args = args[2:end]
+    cmd = pipeline(`$(Base.julia_cmd()) --project $run_args`; stdin, stdout, stderr)
+    process = run(cmd; wait = false)
+    wait(process)
+    return Int32(process.exitcode)
+end
+
+function run_pkg(args::Vector{String})::Nothing
+    # Delegate to Pkg REPLMode
+    pkg_command = join(args, " ")
+    REPLMode.pkgstr(pkg_command)
     return nothing
 end
 
