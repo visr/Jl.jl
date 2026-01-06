@@ -9,6 +9,7 @@ function print_help()
     println("Full documentation available at https://pkgdocs.julialang.org/\n")
 
     printstyled("OPTIONS:\n", bold = true)
+    println("  +CHANNEL          Specify Julia version as a juliaup channel (e.g., +1.12)")
     println("  --project=PATH    Set the project environment (default: current project)")
     println("  --offline         Work in offline mode")
     println("  --help            Show this help message")
@@ -64,22 +65,16 @@ function print_help()
 end
 
 function (@main)(args)::Int32
-    # Disable interactivity warning (pkg should be used interactively)
-    if isdefined(REPLMode, :PRINTED_REPL_WARNING)
-        REPLMode.PRINTED_REPL_WARNING[] = true
-    end
-
     # Reset LOAD_PATH to allow normal Julia project resolution
     # The shim sets JULIA_LOAD_PATH to the app environment, but we want
     # to respect the user's current directory for project resolution
-    empty!(LOAD_PATH)
-    append!(LOAD_PATH, Base.DEFAULT_LOAD_PATH)
-    # also in ENV for the child processes
+    # Only needed in ENV for the child processes
     sep = Sys.iswindows() ? ';' : ':'
     ENV["JULIA_LOAD_PATH"] = join(Base.DEFAULT_LOAD_PATH, sep)
 
     # Parse options before the command
     project_path = nothing
+    juliaup_channel = nothing
     offline_mode = false
     idx = 1
 
@@ -93,6 +88,9 @@ function (@main)(args)::Int32
             idx += 1
             project_path = args[idx]
             idx += 1
+        elseif startswith(arg, "+")
+            juliaup_channel = arg[2:end]
+            idx += 1
         elseif arg == "--offline"
             offline_mode = true
             idx += 1
@@ -100,7 +98,7 @@ function (@main)(args)::Int32
             print_help()
             return 0
         elseif arg == "--version"
-            println("jl version $JL_VERSION, julia version $VERSION")
+            println("jl version $JL_VERSION")
             return 0
         elseif startswith(arg, "--")
             println(stderr, "Error: Unknown option: $arg")
@@ -158,6 +156,18 @@ function (@main)(args)::Int32
         Pkg.offline(true)
     end
 
+    # Set Julia channel if requested
+    if juliaup_channel !== nothing
+        # Unfotunately this way it won't auto install despite
+        # juliaup config autoinstallchannels true
+        # see https://github.com/JuliaLang/juliaup/issues/1331
+        # Hence for now we add it manually, but only on init for perf reasons
+        if remaining_args[1] == "init"
+            run(`juliaup add $juliaup_channel`)
+        end
+        ENV["JULIAUP_CHANNEL"] = juliaup_channel
+    end
+
     # Execute the Pkg REPL command
     try
         return run_subcommand(remaining_args)
@@ -172,25 +182,33 @@ end
 
 function run_subcommand(args::Vector{String})::Int32
     if args[1] == "init"
-        run_init(args)
-        return 0
+        return run_init(args)
     elseif args[1] == "run"
         return run_run(args)
     else
-        run_pkg(args)
-        return 0
+        return run_pkg(args)
     end
 end
 
-function run_init(args::Vector{String})::Nothing
+function run_init(args::Vector{String})::Int32
     # TODO Copy uv: If a Project.toml is found in any of the parent directories of the target path, the project will be added as a workspace member of the parent.
+    # TODO test behavior on existing project, clear error
+
     project_path = length(args) > 1 ? args[2] : pwd()
-    Pkg.activate(project_path; io = devnull)
+    code = """
+    import Pkg
+    Pkg.activate($(repr(project_path)); io = devnull)
     # Only writes a Project.toml the second time
     Pkg.instantiate(; io = devnull)
     Pkg.instantiate(; io = devnull)
+    """
+    julia_cmd = `julia --startup-file=no --eval $code`
+    pipe = pipeline(julia_cmd; stdin, stdout, stderr)
+    process = run(pipe; wait = false)
+    wait(process)
+
     println("Initialized empty project at $(abspath(project_path))")
-    return nothing
+    return Int32(process.exitcode)
 end
 
 function run_run(args::Vector{String})::Int32
@@ -201,17 +219,32 @@ function run_run(args::Vector{String})::Int32
     run_args = args[2:end]
     # Pass the currently active project to the child Julia process
     active_project = Base.active_project()
-    cmd = pipeline(`$(Base.julia_cmd()) --project=$active_project $run_args`; stdin, stdout, stderr)
-    process = run(cmd; wait = false)
+    cmd = `julia --startup-file=no --threads=auto --project=$active_project $run_args`
+    pipe = pipeline(cmd; stdin, stdout, stderr)
+    process = run(pipe; wait = false)
     wait(process)
     return Int32(process.exitcode)
 end
 
-function run_pkg(args::Vector{String})::Nothing
-    # Delegate to Pkg REPLMode
+function run_pkg(args::Vector{String})::Int32
+    # Delegate to Pkg REPLMode via subprocess
     pkg_command = join(args, " ")
-    REPLMode.pkgstr(pkg_command)
-    return nothing
+    active_project = Base.active_project()
+    code = """
+    using Pkg: REPLMode
+
+    # Disable interactivity warning (pkg should be used interactively)
+    if isdefined(REPLMode, :PRINTED_REPL_WARNING)
+        REPLMode.PRINTED_REPL_WARNING[] = true
+    end
+
+    REPLMode.pkgstr($(repr(pkg_command)))
+    """
+    cmd = `julia --startup-file=no --threads=auto --project=$active_project --eval $code`
+    pipe = pipeline(cmd; stdin, stdout, stderr)
+    process = run(pipe; wait = false)
+    wait(process)
+    return Int32(process.exitcode)
 end
 
 end # module Jl

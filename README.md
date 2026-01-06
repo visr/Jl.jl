@@ -6,7 +6,7 @@ An early prototype for an app to run Julia scripts and manage packages.
 
 ## Installation
 
-This [app](https://pkgdocs.julialang.org/v1/apps/) requires Julia 1.12 or higher.
+This [app](https://pkgdocs.julialang.org/v1/apps/) requires Julia 1.12 or higher and Juliaup.
 
 ```
 pkg> app add https://github.com/visr/Jl.jl
@@ -63,6 +63,32 @@ jl run -m Runic --inplace .
 
 Possibly we could support `jl run runic --inplace .`, where it accepts any apps in the current project or its dependencies.
 Ideas welcome!
+
+## Julia versions
+
+If a project has a Manifest.toml, we know the Julia version we need for reproducability.
+Therefore `jl` wants to automatically use that version, and install it if needed.
+For the best user experience we recommend enabling this juliaup config:
+
+```sh
+juliaup config autoinstallchannels true
+```
+
+The following option is not yet released at the time of writing, but if `juliaup --version` is later than 1.18.9 it should be available:
+
+```sh
+juliaup config manifestversiondetect true
+```
+
+To select a Julia version, the [same rules as juliaup](https://github.com/JuliaLang/juliaup?tab=readme-ov-file#overrides) apply.
+
+This will create a project with Julia v1.12.0, which is installed if needed:
+
+```sh
+jl +1.12.0 init
+```
+
+If `manifestversiondetect` is enabled, all operations will use that version unless overruled with e.g. `jl +1.12.1 run script.jl`.
 
 ## Background
 
